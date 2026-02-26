@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>恒晟AI训练场</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#EBE8E3;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+/* ---- 登录页 ---- */
+.login-wrap{display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#132D61 0%,#1a3a7a 100%)}
+.login-box{background:#fff;border-radius:16px;padding:40px 32px;width:90%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+.login-box h1{color:#132D61;font-size:22px;text-align:center;margin-bottom:6px}
+.login-box p{color:#888;font-size:13px;text-align:center;margin-bottom:24px}
+.login-box input{width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:8px;font-size:15px;margin-bottom:12px;outline:none;transition:border .2s}
+.login-box input:focus{border-color:#132D61}
+.login-box button{width:100%;padding:12px;background:#132D61;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer;transition:background .2s}
+.login-box button:hover{background:#1a3a7a}
+.login-box .err{color:#d32f2f;font-size:13px;text-align:center;margin-top:8px;min-height:20px}
+/* ---- 头部 ---- */
+.hd{background:#132D61;color:#fff;padding:12px 16px;display:flex;align-items:center;min-height:50px;flex-shrink:0}
+.hd-back{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;margin-right:12px;padding:4px 8px;display:none}
+.hd-title{flex:1;font-size:17px;font-weight:600}
+.hd-user{font-size:13px;color:#a98e4d}
+.hd-logout{background:none;border:1px solid rgba(255,255,255,.3);color:#fff;font-size:12px;padding:4px 10px;border-radius:4px;cursor:pointer;margin-left:8px}
+/* ---- 考场选择 ---- */
+.exam-list{flex:1;overflow-y:auto;padding:16px}
+.exam-card{background:#fff;border-radius:12px;padding:20px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);cursor:pointer;transition:transform .15s,box-shadow .15s;border-left:4px solid #132D61}
+.exam-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.1)}
+.exam-card:active{transform:scale(.98)}
+.exam-card h3{color:#132D61;font-size:16px;margin-bottom:4px}
+.exam-card .desc{color:#666;font-size:13px;margin-bottom:8px}
+.exam-card .meta{color:#a98e4d;font-size:12px}
+.section-title{color:#132D61;font-size:14px;font-weight:600;margin:16px 0 8px;padding-left:4px}
+/* ---- 对话页 ---- */
+.chat-area{flex:1;overflow-y:auto;padding:12px 16px;display:none}
+.msg{display:flex;margin-bottom:14px;align-items:flex-start}
+.msg-l{justify-content:flex-start}
+.msg-r{justify-content:flex-end}
+.msg .avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;flex-shrink:0}
+.msg-l .avatar{background:#a98e4d;margin-right:8px}
+.msg-r .avatar{background:#132D61;margin-left:8px;order:2}
+.msg .bubble{max-width:72%;padding:10px 14px;border-radius:12px;font-size:14.5px;line-height:1.6;word-break:break-word}
+.msg-l .bubble{background:#fff;color:#1a1a1a;border-bottom-left-radius:4px}
+.msg-r .bubble{background:#D6E4F0;color:#1a1a1a;border-bottom-right-radius:4px}
+.turn-badge{text-align:center;color:#999;font-size:11px;margin:8px 0}
+/* ---- 输入栏 ---- */
+.input-bar{display:none;padding:10px 12px;background:#fff;border-top:1px solid #e5e5e5;flex-shrink:0}
+.input-bar form{display:flex;gap:8px}
+.input-bar textarea{flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:20px;font-size:14.5px;resize:none;outline:none;max-height:80px;min-height:40px;line-height:1.4;font-family:inherit}
+.input-bar textarea:focus{border-color:#132D61}
+.input-bar button{background:#132D61;color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;flex-shrink:0}
+.input-bar button:disabled{background:#ccc}
+/* ---- 结束栏 ---- */
+.end-bar{display:none;padding:12px;background:#fff;border-top:1px solid #e5e5e5;text-align:center}
+.end-bar button{padding:12px 32px;border-radius:8px;font-size:15px;cursor:pointer;border:none;margin:0 6px}
+.btn-eval{background:#a98e4d;color:#fff}
+.btn-back{background:#eee;color:#333}
+/* ---- 成绩单 ---- */
+.score-wrap{flex:1;overflow-y:auto;padding:16px;display:none}
+.score-header{background:linear-gradient(135deg,#132D61,#1a3a7a);color:#fff;border-radius:12px;padding:24px;text-align:center;margin-bottom:16px}
+.score-header .big{font-size:48px;font-weight:700;color:#a98e4d}
+.score-header .label{font-size:14px;margin-top:4px}
+.score-header .pass{display:inline-block;margin-top:8px;padding:4px 16px;border-radius:20px;font-size:14px}
+.pass-yes{background:rgba(76,175,80,.2);color:#4CAF50}
+.pass-no{background:rgba(244,67,54,.2);color:#f44336}
+.score-section{background:#fff;border-radius:10px;padding:16px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.score-section h4{color:#132D61;font-size:14px;margin-bottom:8px;display:flex;justify-content:space-between}
+.score-section h4 span{color:#a98e4d}
+.score-item{font-size:13px;line-height:1.8;padding-left:8px}
+.score-item.good{color:#2e7d32}
+.score-item.bad{color:#d32f2f}
+.score-tips{background:#FFF8E1;border-radius:10px;padding:16px;margin-bottom:10px}
+.score-tips h4{color:#a98e4d;font-size:14px;margin-bottom:8px}
+.score-tips li{font-size:13px;line-height:1.8;color:#333}
+.score-summary{background:#fff;border-radius:10px;padding:16px;margin-bottom:10px;font-size:14px;line-height:1.7;color:#333}
+/* ---- 历史记录 ---- */
+.hist-card{background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.hist-card:hover{background:#f9f9f9}
+.hist-left h4{font-size:14px;color:#333}
+.hist-left .time{font-size:12px;color:#999;margin-top:2px}
+.hist-right{text-align:right}
+.hist-right .score{font-size:20px;font-weight:700;color:#132D61}
+.hist-right .status{font-size:12px;color:#999}
+/* ---- Loading ---- */
+.loading{display:none;text-align:center;padding:40px}
+.loading .spinner{width:36px;height:36px;border:3px solid #ddd;border-top-color:#132D61;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+.loading p{color:#666;font-size:14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- ============ 登录页 ============ -->
+<div id="loginPage" class="login-wrap">
+  <div class="login-box">
+    <h1>恒晟AI训练场</h1>
+    <p>用公司账号登录</p>
+    <input type="email" id="loginEmail" placeholder="邮箱">
+    <input type="password" id="loginPwd" placeholder="密码">
+    <button id="loginBtn" onclick="doLogin()">登录</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ============ 主界面 ============ -->
+<div id="mainApp" style="display:none;width:100%;height:100vh;flex-direction:column">
+  <div class="hd">
+    <button class="hd-back" id="backBtn" onclick="goBack()">&#8249;</button>
+    <div class="hd-title" id="hdTitle">AI 训练场</div>
+    <span class="hd-user" id="hdUser"></span>
+    <button class="hd-logout" onclick="doLogout()">退出</button>
+  </div>
+
+  <!-- 考场列表 -->
+  <div class="exam-list" id="examList"></div>
+
+  <!-- 对话区 -->
+  <div class="chat-area" id="chatArea"></div>
+  <div class="input-bar" id="inputBar">
+    <form onsubmit="sendMsg(event)">
+      <textarea id="msgInput" rows="1" placeholder="你是经纪人，回复客户..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg(event)}"></textarea>
+      <button type="submit" id="sendBtn">&#10148;</button>
+    </form>
+  </div>
+  <div class="end-bar" id="endBar">
+    <button class="btn-eval" onclick="doEvaluate()">查看成绩单</button>
+    <button class="btn-back" onclick="goHome()">返回首页</button>
+  </div>
+
+  <!-- 成绩单 -->
+  <div class="score-wrap" id="scoreWrap"></div>
+
+  <!-- Loading -->
+  <div class="loading" id="loadingView">
+    <div class="spinner"></div>
+    <p id="loadingText">AI考官正在评分...</p>
+  </div>
+</div>
+
+<script>
+const SB_URL = "https://grgrnqlgufgahsstoawz.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdyZ3JucWxndWZnYWhzc3RvYXd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgyODk0MTQsImV4cCI6MjA4Mzg2NTQxNH0.jKtIsA-QnCsN6K42pxclkfIXjYLldFOaxZ_OdGpPaWU";
+const API = SB_URL + "/functions/v1/trainer";
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+let currentUser = null;
+let accessToken = "";
+let currentSession = null;
+let sending = false;
+
+// ============ 认证 ============
+async function checkAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) {
+    currentUser = session.user;
+    accessToken = session.access_token;
+    showMain();
+  }
+}
+
+async function doLogin() {
+  const email = document.getElementById("loginEmail").value.trim();
+  const pwd = document.getElementById("loginPwd").value;
+  const errEl = document.getElementById("loginErr");
+  errEl.textContent = "";
+  if (!email || !pwd) { errEl.textContent = "请填写邮箱和密码"; return; }
+  document.getElementById("loginBtn").textContent = "登录中...";
+  document.getElementById("loginBtn").disabled = true;
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pwd });
+  document.getElementById("loginBtn").textContent = "登录";
+  document.getElementById("loginBtn").disabled = false;
+  if (error) { errEl.textContent = error.message; return; }
+  currentUser = data.user;
+  accessToken = data.session.access_token;
+  showMain();
+}
+
+function doLogout() {
+  sb.auth.signOut();
+  currentUser = null;
+  accessToken = "";
+  document.getElementById("loginPage").style.display = "flex";
+  document.getElementById("mainApp").style.display = "none";
+}
+
+async function showMain() {
+  document.getElementById("loginPage").style.display = "none";
+  document.getElementById("mainApp").style.display = "flex";
+  // 获取用户姓名
+  const { data: profile } = await sb.from("profiles").select("full_name").eq("id", currentUser.id).single();
+  const name = profile?.full_name || currentUser.email;
+  document.getElementById("hdUser").textContent = name;
+  goHome();
+}
+
+// ============ API 调用 ============
+async function apiCall(body) {
+  const r = await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + accessToken },
+    body: JSON.stringify(body)
+  });
+  return r;
+}
+
+// ============ 页面切换 ============
+function showView(viewId) {
+  ["examList","chatArea","inputBar","endBar","scoreWrap","loadingView"].forEach(id => {
+    document.getElementById(id).style.display = "none";
+  });
+  if (viewId === "home") {
+    document.getElementById("examList").style.display = "block";
+    document.getElementById("backBtn").style.display = "none";
+    document.getElementById("hdTitle").textContent = "AI 训练场";
+  } else if (viewId === "chat") {
+    document.getElementById("chatArea").style.display = "block";
+    document.getElementById("inputBar").style.display = "block";
+    document.getElementById("backBtn").style.display = "block";
+  } else if (viewId === "end") {
+    document.getElementById("chatArea").style.display = "block";
+    document.getElementById("endBar").style.display = "block";
+    document.getElementById("backBtn").style.display = "block";
+  } else if (viewId === "score") {
+    document.getElementById("scoreWrap").style.display = "block";
+    document.getElementById("backBtn").style.display = "block";
+    document.getElementById("hdTitle").textContent = "成绩单";
+  } else if (viewId === "loading") {
+    document.getElementById("loadingView").style.display = "block";
+    document.getElementById("backBtn").style.display = "none";
+  }
+}
+
+async function goHome() {
+  currentSession = null;
+  showView("home");
+  await loadExamList();
+}
+
+function goBack() {
+  if (currentSession && document.getElementById("scoreWrap").style.display !== "none") {
+    goHome();
+  } else if (currentSession) {
+    if (confirm("退出考试？进度会丢失")) goHome();
+  } else {
+    goHome();
+  }
+}
+
+// ============ 考场列表 ============
+async function loadExamList() {
+  const el = document.getElementById("examList");
+  // 先显示考场
+  const r = await apiCall({ action: "list_exams" });
+  const data = await r.json();
+  const exams = data.exams || [];
+
+  let html = '<div class="section-title">选择考场</div>';
+  exams.forEach(ex => {
+    html += `<div class="exam-card" onclick="startExam('${ex.id}')">
+      <h3>${ex.name}</h3>
+      <div class="desc">${ex.desc}</div>
+      <div class="meta">${ex.maxTurns} 轮对话</div>
+    </div>`;
+  });
+
+  // 加载历史记录
+  const hr = await apiCall({ action: "history" });
+  const hdata = await hr.json();
+  const sessions = hdata.sessions || [];
+  if (sessions.length > 0) {
+    html += '<div class="section-title">历史记录</div>';
+    sessions.forEach(s => {
+      const examName = exams.find(e => e.id === s.exam_type)?.name || s.exam_type;
+      const time = new Date(s.created_at).toLocaleDateString("zh-CN", { month:"numeric", day:"numeric", hour:"numeric", minute:"numeric" });
+      const statusText = s.status === "evaluated" ? `${s.total_score}分` : s.status === "completed" ? "待评分" : "进行中";
+      const statusColor = s.status === "evaluated" ? (s.total_score >= 70 ? "#2e7d32" : "#d32f2f") : "#999";
+      html += `<div class="hist-card" onclick="viewSession('${s.id}')">
+        <div class="hist-left"><h4>${examName}</h4><div class="time">${time} | ${s.turn_count || 0}轮</div></div>
+        <div class="hist-right"><div class="score" style="color:${statusColor}">${statusText}</div></div>
+      </div>`;
+    });
+  }
+
+  el.innerHTML = html;
+}
+
+// ============ 开考 ============
+async function startExam(examType) {
+  showView("loading");
+  document.getElementById("loadingText").textContent = "正在生成考题...";
+  const r = await apiCall({ action: "start_exam", exam_type: examType });
+  const data = await r.json();
+  if (data.error) { alert(data.error); goHome(); return; }
+  currentSession = { id: data.session_id, examName: data.exam_name, maxTurns: data.max_turns, turn: 0 };
+  document.getElementById("hdTitle").textContent = data.exam_name;
+  document.getElementById("chatArea").innerHTML = `<div class="turn-badge">考场：${data.exam_name} | 共${data.max_turns}轮</div>`;
+  // 显示客户的第一条消息
+  if (data.first_message) {
+    appendMsg("customer", data.first_message);
+  }
+  showView("chat");
+  document.getElementById("msgInput").focus();
+}
+
+// ============ 发消息 ============
+async function sendMsg(e) {
+  e.preventDefault();
+  if (sending || !currentSession) return;
+  const input = document.getElementById("msgInput");
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = "";
+  input.style.height = "40px";
+  sending = true;
+  document.getElementById("sendBtn").disabled = true;
+
+  // 显示经纪人消息
+  appendMsg("agent", msg);
+
+  // 显示客户typing
+  const typingId = "typing_" + Date.now();
+  appendMsg("customer", "...", typingId);
+
+  try {
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + accessToken },
+      body: JSON.stringify({ action: "chat", session_id: currentSession.id, message: msg })
+    });
+
+    // 流式读取
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let full = "", buf = "";
+    let meta = null;
+
+    // 清空typing
+    const typingEl = document.getElementById(typingId);
+    if (typingEl) typingEl.querySelector(".bubble").textContent = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() || "";
+      for (const ln of lines) {
+        const s = ln.trim();
+        if (!s || !s.startsWith("data: ") || s === "data: [DONE]") continue;
+        try {
+          const d = JSON.parse(s.slice(6));
+          if (d.t) {
+            full += d.t;
+            if (typingEl) typingEl.querySelector(".bubble").textContent = full;
+            scrollBottom();
+          }
+          if (d.meta) meta = d.meta;
+        } catch {}
+      }
+    }
+
+    // 更新轮数
+    if (meta) {
+      currentSession.turn = meta.turn;
+      const badge = document.createElement("div");
+      badge.className = "turn-badge";
+      badge.textContent = `第 ${meta.turn}/${meta.maxTurns} 轮`;
+      document.getElementById("chatArea").appendChild(badge);
+
+      if (meta.isLastTurn) {
+        // 考试结束
+        showView("end");
+        return;
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    const typingEl = document.getElementById(typingId);
+    if (typingEl) typingEl.querySelector(".bubble").textContent = "(网络错误，再试一次)";
+  }
+
+  sending = false;
+  document.getElementById("sendBtn").disabled = false;
+  scrollBottom();
+}
+
+function appendMsg(role, text, id) {
+  const chatArea = document.getElementById("chatArea");
+  const div = document.createElement("div");
+  div.className = "msg " + (role === "agent" ? "msg-r" : "msg-l");
+  if (id) div.id = id;
+  const avatarText = role === "agent" ? "我" : "客";
+  div.innerHTML = `<div class="avatar">${avatarText}</div><div class="bubble">${escHtml(text)}</div>`;
+  chatArea.appendChild(div);
+  scrollBottom();
+}
+
+function scrollBottom() {
+  const ca = document.getElementById("chatArea");
+  ca.scrollTop = ca.scrollHeight;
+}
+
+function escHtml(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+// ============ 评分 ============
+async function doEvaluate() {
+  if (!currentSession) return;
+  showView("loading");
+  document.getElementById("loadingText").textContent = "AI考官正在评分，请稍等...";
+  try {
+    const r = await apiCall({ action: "evaluate", session_id: currentSession.id });
+    const data = await r.json();
+    renderScore(data);
+  } catch (err) {
+    alert("评分失败：" + err);
+    goHome();
+  }
+}
+
+function renderScore(data) {
+  const wrap = document.getElementById("scoreWrap");
+  const total = data.total || 0;
+  const passed = data.passed || total >= 70;
+  const redLine = data.red_line || false;
+  const sections = data.sections || {};
+
+  let html = `<div class="score-header">
+    <div class="big">${redLine ? "0" : total}</div>
+    <div class="label">总分（满分100）</div>
+    <div class="pass ${passed && !redLine ? 'pass-yes' : 'pass-no'}">${redLine ? "触碰红线 不及格" : (passed ? "通过" : "未通过")}</div>
+  </div>`;
+
+  // 各维度
+  const dimNames = {
+    compliance: "合规红线", knowledge: "专业知识", communication: "沟通技巧",
+    objection: "异议处理", process: "流程规范", closing: "成交引导"
+  };
+  for (const [key, label] of Object.entries(dimNames)) {
+    const sec = sections[key];
+    if (!sec) continue;
+    const scoreText = key === "compliance" ? (sec.score || "通过") : `${sec.score || 0}/${sec.max || 0}`;
+    html += `<div class="score-section"><h4>${label}<span>${scoreText}</span></h4>`;
+    (sec.good || []).forEach(g => { html += `<div class="score-item good">+ ${escHtml(g)}</div>`; });
+    (sec.bad || []).forEach(b => { html += `<div class="score-item bad">- ${escHtml(b)}</div>`; });
+    (sec.issues || []).forEach(i => { html += `<div class="score-item bad">! ${escHtml(i)}</div>`; });
+    html += `</div>`;
+  }
+
+  // 改进建议
+  if (data.tips && data.tips.length) {
+    html += `<div class="score-tips"><h4>改进建议</h4><ol>`;
+    data.tips.forEach(t => { html += `<li>${escHtml(t)}</li>`; });
+    html += `</ol></div>`;
+  }
+
+  // 总评
+  if (data.summary) {
+    html += `<div class="score-summary">${escHtml(data.summary)}</div>`;
+  }
+
+  // 返回按钮
+  html += `<div style="text-align:center;padding:16px"><button class="btn-back" style="padding:12px 40px;border-radius:8px;font-size:15px;cursor:pointer;border:none" onclick="goHome()">返回首页</button></div>`;
+
+  wrap.innerHTML = html;
+  showView("score");
+}
+
+// ============ 查看历史 ============
+async function viewSession(sessionId) {
+  showView("loading");
+  document.getElementById("loadingText").textContent = "加载中...";
+  const r = await apiCall({ action: "get_session", session_id: sessionId });
+  const data = await r.json();
+  if (!data.session) { alert("记录不存在"); goHome(); return; }
+
+  if (data.session.status === "evaluated" && data.session.score_detail) {
+    renderScore(data.session.score_detail);
+    return;
+  }
+
+  // 显示对话记录
+  const examName = EXAM_CONFIGS_LOCAL[data.session.exam_type] || data.session.exam_type;
+  document.getElementById("hdTitle").textContent = examName;
+  document.getElementById("chatArea").innerHTML = "";
+  (data.conversations || []).forEach(c => {
+    appendMsg(c.role === "agent" ? "agent" : "customer", c.content);
+  });
+
+  if (data.session.status === "completed") {
+    currentSession = { id: sessionId };
+    showView("end");
+  } else {
+    showView("chat");
+    document.getElementById("inputBar").style.display = "none";
+  }
+}
+
+const EXAM_CONFIGS_LOCAL = {
+  needs_analysis: "需求分析", pricing: "精准报价", objection: "异议处理",
+  compliance: "合规红线", health: "健康核保", comprehensive: "综合实战"
+};
+
+// ============ 初始化 ============
+checkAuth();
+</script>
+</body>
+</html>
