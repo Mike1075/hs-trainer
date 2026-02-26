@@ -88,9 +88,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 .loading .spinner{width:36px;height:36px;border:3px solid #ddd;border-top-color:#132D61;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
 .loading p{color:#666;font-size:14px}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* ---- 全局初始化加载 ---- */
+.init-loading{position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#132D61 0%,#1a3a7a 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .3s}
+.init-loading .logo-text{color:#a98e4d;font-size:24px;font-weight:700;margin-bottom:20px;letter-spacing:2px}
+.init-loading .init-spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,.2);border-top-color:#a98e4d;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px}
+.init-loading .init-hint{color:rgba(255,255,255,.6);font-size:13px}
+/* ---- 考场列表内加载 ---- */
+.list-loading{text-align:center;padding:60px 20px}
+.list-loading .spinner{width:32px;height:32px;border:3px solid #ddd;border-top-color:#132D61;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+.list-loading p{color:#999;font-size:14px}
 </style>
 </head>
 <body>
+
+<!-- ============ 全局加载动画 ============ -->
+<div class="init-loading" id="initLoading">
+  <div class="logo-text">恒晟AI训练场</div>
+  <div class="init-spinner"></div>
+  <div class="init-hint">正在加载中...</div>
+</div>
 
 <!-- ============ 登录页 ============ -->
 <div id="loginPage" class="login-wrap">
@@ -151,13 +167,18 @@ let currentSession = null;
 let sending = false;
 
 // ============ 认证 ============
+function hideInitLoading() {
+  const el = document.getElementById("initLoading");
+  if (el) { el.style.opacity = "0"; setTimeout(() => el.remove(), 300); }
+}
 async function checkAuth() {
   const { data: { session } } = await sb.auth.getSession();
   if (session?.user) {
     currentUser = session.user;
     accessToken = session.access_token;
-    showMain();
+    await showMain();
   }
+  hideInitLoading();
 }
 
 async function doLogin() {
@@ -192,7 +213,7 @@ async function showMain() {
   const { data: profile } = await sb.from("profiles").select("full_name").eq("id", currentUser.id).single();
   const name = profile?.full_name || currentUser.email;
   document.getElementById("hdUser").textContent = name;
-  goHome();
+  await goHome();
 }
 
 // ============ API 调用 ============
@@ -235,6 +256,8 @@ function showView(viewId) {
 async function goHome() {
   currentSession = null;
   showView("home");
+  // 先显示列表区域内的加载动画
+  document.getElementById("examList").innerHTML = '<div class="list-loading"><div class="spinner"></div><p>正在加载考场...</p></div>';
   await loadExamList();
 }
 
