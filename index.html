@@ -75,6 +75,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 .score-tips h4{color:#a98e4d;font-size:14px;margin-bottom:8px}
 .score-tips li{font-size:13px;line-height:1.8;color:#333}
 .score-summary{background:#fff;border-radius:10px;padding:16px;margin-bottom:10px;font-size:14px;line-height:1.7;color:#333}
+/* ---- 鼓励区 ---- */
+.score-encourage{background:linear-gradient(135deg,#E8F5E9,#F1F8E9);border-radius:10px;padding:16px;margin-bottom:10px;border-left:4px solid #4CAF50}
+.score-encourage h4{color:#2e7d32;font-size:14px;margin-bottom:6px}
+.score-encourage p{color:#333;font-size:13.5px;line-height:1.7}
+/* ---- 逐轮分析 ---- */
+.turn-analysis{background:#fff;border-radius:10px;padding:16px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.turn-analysis h4{color:#132D61;font-size:14px;margin-bottom:12px}
+.ta-item{padding:10px 0;border-bottom:1px solid #f0f0f0}
+.ta-item:last-child{border-bottom:none}
+.ta-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.ta-turn{background:#132D61;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;flex-shrink:0}
+.ta-verdict-good{color:#2e7d32;font-size:12px;font-weight:600}
+.ta-verdict-bad{color:#d32f2f;font-size:12px;font-weight:600}
+.ta-verdict-neutral{color:#666;font-size:12px;font-weight:600}
+.ta-said{color:#555;font-size:13px;line-height:1.5;margin:4px 0 4px 0;padding-left:4px;border-left:2px solid #ddd}
+.ta-comment{color:#333;font-size:13px;line-height:1.5}
+.ta-better{background:#FFF3E0;border-radius:6px;padding:8px 10px;margin-top:6px;font-size:13px;line-height:1.5;color:#e65100}
+.ta-better b{color:#bf360c}
 /* ---- 历史记录 ---- */
 .hist-card{background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
 .hist-card:hover{background:#f9f9f9}
@@ -445,15 +463,32 @@ async function doEvaluate() {
 function renderScore(data) {
   const wrap = document.getElementById("scoreWrap");
   const total = data.total || 0;
-  const passed = data.passed || total >= 70;
   const redLine = data.red_line || false;
+  const passed = !redLine && (data.passed || total >= 70);
   const sections = data.sections || {};
 
+  let statusText, statusClass;
+  if (redLine) {
+    statusText = `触碰红线 未通过（实际水平 ${total} 分）`;
+    statusClass = "pass-no";
+  } else if (passed) {
+    statusText = "通过";
+    statusClass = "pass-yes";
+  } else {
+    statusText = "未通过";
+    statusClass = "pass-no";
+  }
+
   let html = `<div class="score-header">
-    <div class="big">${redLine ? "0" : total}</div>
+    <div class="big">${total}</div>
     <div class="label">总分（满分100）</div>
-    <div class="pass ${passed && !redLine ? 'pass-yes' : 'pass-no'}">${redLine ? "触碰红线 不及格" : (passed ? "通过" : "未通过")}</div>
+    <div class="pass ${statusClass}">${statusText}</div>
   </div>`;
+
+  // 鼓励区（始终显示）
+  if (data.encouragement) {
+    html += `<div class="score-encourage"><h4>亮点</h4><p>${escHtml(data.encouragement)}</p></div>`;
+  }
 
   // 各维度
   const dimNames = {
@@ -468,6 +503,22 @@ function renderScore(data) {
     (sec.good || []).forEach(g => { html += `<div class="score-item good">+ ${escHtml(g)}</div>`; });
     (sec.bad || []).forEach(b => { html += `<div class="score-item bad">- ${escHtml(b)}</div>`; });
     (sec.issues || []).forEach(i => { html += `<div class="score-item bad">! ${escHtml(i)}</div>`; });
+    html += `</div>`;
+  }
+
+  // 逐轮过程分析
+  if (data.turn_analysis && data.turn_analysis.length) {
+    html += `<div class="turn-analysis"><h4>逐轮过程分析</h4>`;
+    data.turn_analysis.forEach(ta => {
+      const vcls = ta.verdict === "good" ? "ta-verdict-good" : ta.verdict === "bad" ? "ta-verdict-bad" : "ta-verdict-neutral";
+      const vlabel = ta.verdict === "good" ? "OK" : ta.verdict === "bad" ? "需改进" : "一般";
+      html += `<div class="ta-item">
+        <div class="ta-head"><span class="ta-turn">第${ta.turn}轮</span><span class="${vcls}">${vlabel}</span></div>`;
+      if (ta.agent_said) html += `<div class="ta-said">${escHtml(ta.agent_said)}</div>`;
+      if (ta.comment) html += `<div class="ta-comment">${escHtml(ta.comment)}</div>`;
+      if (ta.verdict === "bad" && ta.better) html += `<div class="ta-better"><b>参考话术：</b>${escHtml(ta.better)}</div>`;
+      html += `</div>`;
+    });
     html += `</div>`;
   }
 
